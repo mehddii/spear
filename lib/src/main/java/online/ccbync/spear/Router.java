@@ -1,76 +1,47 @@
 package online.ccbync.spear;
 
-import java.util.*;
+import java.util.function.Function;
+import java.lang.Void;
 
+// TODO:
+//  - Fast routing (start with radix tree)
+//  - Implement Context with a clean api
 public class Router {
-    private final Map<String, Object> handlers = new HashMap<>();
-    private final Map<String, HttpMethod> methods = new HashMap<>();
-
-    enum HttpMethod {
-        GET,
-        POST,
-        PUT,
-        PATCH,
-        DELETE,
-        QUERY,
+    Router() {
     }
 
-    public Router get(String route, Object handler) {
-        handlers.put(route, handler);
-        methods.put(route, HttpMethod.GET);
+    Router(String toplevel) {
+    }
+
+    public Router get(String path, Function<Context, Void> handler) {
         return this;
     }
 
-    public Router post(String route, Object handler) {
-        handlers.put(route, handler);
-        methods.put(route, HttpMethod.POST);
+    public Router post(String path, Function<Context, Void> handler) {
         return this;
     }
 
-    public Router put(String route, Object handler) {
-        handlers.put(route, handler);
-        methods.put(route, HttpMethod.PUT);
+    public Router put(String path, Function<Context, Void> handler) {
         return this;
     }
 
-    public Router patch(String route, Object handler) {
-        handlers.put(route, handler);
-        methods.put(route, HttpMethod.PATCH);
+    public Router patch(String path, Function<Context, Void> handler) {
         return this;
     }
 
-    public Router delete(String route, Object handler) {
-        handlers.put(route, handler);
-        methods.put(route, HttpMethod.DELETE);
+    public Router delete(String path, Function<Context, Void> handler) {
         return this;
     }
 
-    public Router query(String route, Object handler) {
-        handlers.put(route, handler);
-        methods.put(route, HttpMethod.QUERY);
+    public Router query(String path, Function<Context, Void> handler) {
         return this;
     }
 
-    public Router handle(String method, String route, Object handler) {
-        handlers.put(route, handler);
+    public Router handle(HttpMethod method, String path, Function<Context, Void> handler) {
         return this;
     }
 
-    // Catch all
-    public Router handle(String route, Object handler) {
-        handlers.put(route, handler);
-        return this;
-    }
-
-    // Catch all for multiple routes
-    public Router handle(List<String> routes, Object handler) {
-        for (var route: routes) {
-            handlers.put(route, handler);
-        }
-        return this;
-    }
-
-    public Router add(String path, Router router) {
+    public Router addSubroute(String path, Router router) {
         return this;
     }
 }
