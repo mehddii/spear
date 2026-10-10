@@ -1,6 +1,8 @@
 package online.ccbync.spear;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 // Highly inspired by https://en.wikipedia.org/wiki/Radix_tree
@@ -11,26 +13,7 @@ class RadixTree {
         root = new Node(new ArrayList<>(), true);
     }
 
-    private class Node {
-        private List<Edge> edges;
-        private boolean isLeaf;
-
-        Node(List<Edge> edges, boolean isLeaf) {
-            this.edges = edges;
-            this.isLeaf = isLeaf;
-        }
-
-        public boolean isLeaf() {
-            return this.isLeaf;
-        }
-
-        public List<Edge> edges() {
-            return this.edges;
-        }
-
-        public void switchType() {
-            this.isLeaf = !this.isLeaf;
-        }
+    private record Node(List<Edge> edges, boolean isLeaf) {
     }
 
     private class Edge {
@@ -93,7 +76,7 @@ class RadixTree {
         var node = root;
         int suffixHead = 0;
 
-        while (!node.isLeaf()) {
+        while (true) {
             var suffix = word.substring(suffixHead);
             var edge = node.edges()
                 .stream()
@@ -111,44 +94,47 @@ class RadixTree {
 
                 return;
             } else {
-                // Already added
-                if (suffixHead == word.length()) {
-                    return;
-                }
-
-                // Exact prefix match
                 var edgeValue = edge.get();
                 var label = edgeValue.label();
-                if (suffix.startsWith(label) && node.isLeaf()) {
-                    edgeValue.targetNode().edges().add(
-                        new Edge(
-                            suffix.substring(label.length()),
-                            new Node(new ArrayList<>(), true)
-                        )
-                    );
-                    node.switchType();
+                var prefix = findCommonPrefix(suffix, label);
 
-                    return;
-                }
+                // Exact prefix match
+                if (suffix.startsWith(label)) {
+                    // Already added
+                    if (suffixHead + prefix.length() == word.length()) {
+                        return;
+                    }
 
-                // Partial prefix match
-                if (findCommonPrefix(suffix, label).length() > 0) {
-                    var prefix = findCommonPrefix(suffix, label);
+                    if (node.isLeaf()) {
+                        edgeValue.targetNode().edges().add(
+                            new Edge(
+                                suffix.substring(label.length()),
+                                new Node(new ArrayList<>(), true)
+                            )
+                        );
+
+                        return;
+                    }
+                } else if (prefix.length() > 0) {
+                    // Partial prefix match
                     edgeValue.changeLabel(label.substring(prefix.length()));
                     node.edges().remove(edgeValue);
 
-                    var newNode = new Node(new ArrayList<>(), false);
+                    var newNode = new Node(new ArrayList<>(), suffix.length() == prefix.length());
                     node.edges().add(new Edge(
                         prefix,
                         newNode
                     ));
                     newNode.edges().add(edgeValue);
-                    newNode.edges().add(
-                        new Edge(
-                            suffix.substring(prefix.length()),
-                            new Node(new ArrayList<>(), true)
-                        )
-                    );
+
+                    if (suffix.length() != prefix.length()) {
+                        newNode.edges().add(
+                            new Edge(
+                                suffix.substring(prefix.length()),
+                                new Node(new ArrayList<>(), true)
+                            )
+                        );
+                    }
 
                     return;
                 }
@@ -156,5 +142,28 @@ class RadixTree {
             node = edge.get().targetNode();
             suffixHead += edge.get().label().length();
         }
+    }
+
+    private record Pair<K, V>(K key, V value) {
+    }
+
+    // Follows the graphviz dot syntax
+    public String toString() {
+        var sb = new StringBuilder();
+
+        Deque<Pair<Integer, Node>> queue = new ArrayDeque<>();
+        queue.offerLast(new Pair<>(1, root));
+        int counter = 2;
+        while (!queue.isEmpty()) {
+            var pair = queue.pollFirst();
+
+            for (var edge: pair.value().edges()) {
+                queue.offerLast(new Pair<>(counter, edge.targetNode()));
+                sb.append("" + pair.key() + " -> " + counter + " [label=\"" + edge.label() + "\"]\n");
+                counter++;
+            }
+        }
+
+        return sb.toString();
     }
 }
