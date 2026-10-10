@@ -4,23 +4,27 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Optional;
 
 // Highly inspired by https://en.wikipedia.org/wiki/Radix_tree
-class RadixTree {
-    private Node root;
+class RadixTree<V> implements PrefixTree<V> {
+    private Node<V> root;
 
     public RadixTree() {
-        root = new Node(new ArrayList<>(), true);
+        root = new Node<V>(new ArrayList<>(), null);
     }
 
-    private record Node(List<Edge> edges, boolean isLeaf) {
+    private record Node<V>(List<Edge<V>> edges, V value) {
+        public boolean isLeaf() {
+            return value != null;
+        }
     }
 
-    private class Edge {
+    private static class Edge<V> {
         private String label;
-        private Node targetNode;
+        private Node<V> targetNode;
 
-        Edge(String label, Node targetNode) {
+        Edge(String label, Node<V> targetNode) {
             this.label = label;
             this.targetNode = targetNode;
         }
@@ -29,7 +33,7 @@ class RadixTree {
             return this.label;
         }
 
-        public Node targetNode() {
+        public Node<V> targetNode() {
             return this.targetNode;
         }
 
@@ -38,7 +42,7 @@ class RadixTree {
         }
     }
 
-    public boolean lookup(String word) {
+    public Optional<V> lookup(String word) {
         var node = root;
         int suffixHead = 0;
 
@@ -57,7 +61,11 @@ class RadixTree {
             }
         }
 
-        return node != null && suffixHead == word.length();
+        if (node != null && suffixHead == word.length()) {
+            return Optional.ofNullable(node.value());
+        }
+
+        return Optional.empty();
     }
 
     private String findCommonPrefix(String a, String b) {
@@ -72,7 +80,7 @@ class RadixTree {
         return a.length() == n ? a : b;
     }
 
-    public void add(String word) {
+    public void add(String word, V value) {
         var node = root;
         int suffixHead = 0;
 
@@ -86,9 +94,9 @@ class RadixTree {
             // No common prefix
             if (edge.isEmpty()) {
                 node.edges().add(
-                    new Edge(
+                    new Edge<>(
                         suffix,
-                        new Node(new ArrayList<>(), true)
+                        new Node<>(new ArrayList<>(), value)
                     )
                 );
 
@@ -107,9 +115,9 @@ class RadixTree {
 
                     if (node.isLeaf()) {
                         edgeValue.targetNode().edges().add(
-                            new Edge(
+                            new Edge<>(
                                 suffix.substring(label.length()),
-                                new Node(new ArrayList<>(), true)
+                                new Node<>(new ArrayList<>(), value)
                             )
                         );
 
@@ -120,8 +128,8 @@ class RadixTree {
                     edgeValue.changeLabel(label.substring(prefix.length()));
                     node.edges().remove(edgeValue);
 
-                    var newNode = new Node(new ArrayList<>(), suffix.length() == prefix.length());
-                    node.edges().add(new Edge(
+                    var newNode = new Node<V>(new ArrayList<>(), suffix.length() == prefix.length() ? value : null);
+                    node.edges().add(new Edge<>(
                         prefix,
                         newNode
                     ));
@@ -129,9 +137,9 @@ class RadixTree {
 
                     if (suffix.length() != prefix.length()) {
                         newNode.edges().add(
-                            new Edge(
+                            new Edge<V>(
                                 suffix.substring(prefix.length()),
-                                new Node(new ArrayList<>(), true)
+                                new Node<V>(new ArrayList<>(), value)
                             )
                         );
                     }
@@ -151,7 +159,7 @@ class RadixTree {
     public String toString() {
         var sb = new StringBuilder();
 
-        Deque<Pair<Integer, Node>> queue = new ArrayDeque<>();
+        Deque<Pair<Integer, Node<V>>> queue = new ArrayDeque<>();
         queue.offerLast(new Pair<>(1, root));
         int counter = 2;
         while (!queue.isEmpty()) {

@@ -6,31 +6,31 @@ import static org.assertj.core.api.Assertions.*;
 
 // Test cases inspired by: https://en.wikipedia.org/wiki/Radix_tree#Insertion
 class RadixTreeTest {
-    RadixTree rt;
+    RadixTree<Integer> rt;
 
     @BeforeEach
     void init() {
-        rt = new RadixTree();
-        rt.add("test");
-        rt.add("slow");
+        rt = new RadixTree<>();
+        rt.add("test", 1);
+        rt.add("slow", 2);
     }
 
     @Test
     void lookupExistingWord() {
-        assertThat(rt.lookup("test")).isTrue();
+        assertThat(rt.lookup("test")).isPresent();
     }
 
     @Test
     void lookupNonExistingWord() {
-        assertThat(rt.lookup("tester")).isFalse();
+        assertThat(rt.lookup("tester")).isEmpty();
     }
 
     @Test
     void duplicateInsertion() {
-        rt.add("water");
-        rt.add("water");
+        rt.add("water", 3);
+        rt.add("water", 3);
 
-        assertThat(rt.lookup("water")).isTrue();
+        assertThat(rt.lookup("water")).isPresent();
         var expected = """
         1 -> 2 [label="test"]
         1 -> 3 [label="slow"]
@@ -41,11 +41,11 @@ class RadixTreeTest {
 
     @Test
     void outOfOrderInsertion() {
-        rt.add("runner");
-        rt.add("run");
+        rt.add("runner", 0);
+        rt.add("run", 0);
 
-        assertThat(rt.lookup("run")).isTrue();
-        assertThat(rt.lookup("runner")).isTrue();
+        assertThat(rt.lookup("run")).isPresent();
+        assertThat(rt.lookup("runner")).isPresent();
         var expected = """
         1 -> 2 [label="test"]
         1 -> 3 [label="slow"]
@@ -57,7 +57,7 @@ class RadixTreeTest {
 
     @Test
     void noCommonPrefixInsertion() {
-        rt.add("water");
+        rt.add("water", 0);
 
         var expected = """
         1 -> 2 [label="test"]
@@ -69,8 +69,8 @@ class RadixTreeTest {
 
     @Test
     void exactPrefixMatch() {
-        rt.add("water");
-        rt.add("slower");
+        rt.add("water", 0);
+        rt.add("slower", 0);
 
         var expected = """
         1 -> 2 [label="test"]
@@ -83,8 +83,8 @@ class RadixTreeTest {
 
     @Test
     void partialPrefixMatch() {
-        rt.add("water");
-        rt.add("team");
+        rt.add("water", 0);
+        rt.add("team", 0);
 
         var expected = """
         1 -> 2 [label="slow"]
