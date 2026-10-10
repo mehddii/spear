@@ -29,6 +29,8 @@ dependencies {
 
     // Source: https://mvnrepository.com/artifact/io.netty/netty-all
     implementation("io.netty:netty-all:5.0.0.Alpha2")
+
+    testImplementation("org.assertj:assertj-core:3.27.7")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.

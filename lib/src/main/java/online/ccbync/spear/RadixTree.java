@@ -7,6 +7,10 @@ import java.util.List;
 class RadixTree {
     private Node root;
 
+    public RadixTree() {
+        root = new Node(new ArrayList<>(), true);
+    }
+
     private class Node {
         private List<Edge> edges;
         private boolean isLeaf;
@@ -55,7 +59,7 @@ class RadixTree {
         var node = root;
         int suffixHead = 0;
 
-        while (node != null && !node.isLeaf() && suffixHead < word.length()) {
+        while (node != null && suffixHead < word.length()) {
             var suffix = word.substring(suffixHead);
             var edge = node.edges()
                 .stream()
@@ -70,7 +74,7 @@ class RadixTree {
             }
         }
 
-        return node != null && node.isLeaf() && suffixHead == word.length();
+        return node != null && suffixHead == word.length();
     }
 
     private String findCommonPrefix(String a, String b) {
@@ -78,7 +82,7 @@ class RadixTree {
 
         for (int i = 0; i < n; i++) {
             if (a.charAt(i) != b.charAt(i)) {
-                return i != 0 ? a.substring(0, i - 1) : "";
+                return i != 0 ? a.substring(0, i) : "";
             }
         }
 
@@ -96,6 +100,7 @@ class RadixTree {
                 .filter(e -> findCommonPrefix(suffix, e.label()).length() > 0)
                 .findFirst();
 
+            // No common prefix
             if (edge.isEmpty()) {
                 node.edges().add(
                     new Edge(
@@ -105,35 +110,47 @@ class RadixTree {
                 );
 
                 return;
-            } else if (node.isLeaf()) {
+            } else {
+                // Already added
                 if (suffixHead == word.length()) {
                     return;
                 }
 
-                node.switchType();
-                if (suffix.startsWith(edge.get().label())) {
-                    node.edges().add(
+                // Exact prefix match
+                var edgeValue = edge.get();
+                var label = edgeValue.label();
+                if (suffix.startsWith(label) && node.isLeaf()) {
+                    edgeValue.targetNode().edges().add(
                         new Edge(
-                            word.substring(suffixHead),
+                            suffix.substring(label.length()),
                             new Node(new ArrayList<>(), true)
                         )
                     );
-                } else {
-                    var prefix = findCommonPrefix(suffix, edge.get().label());
-                    int startIndex = prefix.length() - 1;
-                    edge.get().changeLabel(prefix);
-                    edge.get().targetNode().edges().add(
+                    node.switchType();
+
+                    return;
+                }
+
+                // Partial prefix match
+                if (findCommonPrefix(suffix, label).length() > 0) {
+                    var prefix = findCommonPrefix(suffix, label);
+                    edgeValue.changeLabel(label.substring(prefix.length()));
+                    node.edges().remove(edgeValue);
+
+                    var newNode = new Node(new ArrayList<>(), false);
+                    node.edges().add(new Edge(
+                        prefix,
+                        newNode
+                    ));
+                    newNode.edges().add(edgeValue);
+                    newNode.edges().add(
                         new Edge(
-                            edge.get().label().substring(startIndex),
+                            suffix.substring(prefix.length()),
                             new Node(new ArrayList<>(), true)
                         )
                     );
-                    edge.get().targetNode().edges().add(
-                        new Edge(
-                            suffix.substring(startIndex),
-                            new Node(new ArrayList<>(), true)
-                        )
-                    );
+
+                    return;
                 }
             }
             node = edge.get().targetNode();
