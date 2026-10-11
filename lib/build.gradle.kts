@@ -28,7 +28,7 @@ dependencies {
     implementation(libs.guava)
 
     // Source: https://mvnrepository.com/artifact/io.netty/netty-all
-    implementation("io.netty:netty-all:5.0.0.Alpha2")
+    implementation("io.netty:netty-all:4.2.19.Final")
 
     testImplementation("org.assertj:assertj-core:3.27.7")
 }

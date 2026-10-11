@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Optional;
 
 // TODO:
-//  - Implement Context with a clean api
+//  - Handle dynamic params
 //  - Add a method to merge prefix trees
 public class Router {
     private final PrefixTree<Map<HttpMethod, Handler>> routes = new RadixTree<>();
