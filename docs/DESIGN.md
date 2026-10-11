@@ -27,7 +27,7 @@ var productsRouter = new Router("/api/v1/products")
     .get("/", ctx -> ctx.status(200).json(products));
     .get("/{id:long}", ctx -> {
         // auto parsing id is long
-        var id = ctx.params("id");
+        long id = ctx.params("id");
         var product = products().
             stream().
             filter(p -> p.id == id)
