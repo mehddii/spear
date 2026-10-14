@@ -40,7 +40,6 @@ public class Context implements RequestContext, ResponseStatusBody, ResponseHead
         return null;
     }
 
-
     public ResponseHeadersBody status(HttpStatusClass status) {
         return null;
     }

@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.regex.Pattern;
 
 // Highly inspired by https://en.wikipedia.org/wiki/Radix_tree
 class RadixTree<V> implements PrefixTree<V> {
@@ -20,13 +22,45 @@ class RadixTree<V> implements PrefixTree<V> {
         }
     }
 
-    private static class Edge<V> {
+    private static class Edge<V> implements Comparable<Edge<V>> {
         private String label;
         private Node<V> targetNode;
+        private String name;
+        private Class<?> type;
+        private Pattern pattern;
+        private int priority;
 
         Edge(String label, Node<V> targetNode) {
             this.label = label;
             this.targetNode = targetNode;
+        }
+
+        Edge(
+            String label,
+            Node<V> targetNode,
+            String name,
+            Class<?> type,
+            int priority,
+            Pattern pattern
+        ) {
+            this.label = label;
+            this.targetNode = targetNode;
+            this.name = name;
+            this.type = type;
+            this.pattern = pattern;
+        }
+
+        @Override
+        public int compareTo(Edge<V> other) {
+            return this.priority - other.priority;
+        }
+
+        public boolean isDynamic() {
+            return this.pattern != null;
+        }
+
+        public Pattern pattern() {
+            return this.pattern;
         }
 
         public String label() {
@@ -54,7 +88,37 @@ class RadixTree<V> implements PrefixTree<V> {
                 .findFirst();
 
             if (edge.isEmpty()) {
-                node = null;
+                // Find a dynamic route
+                var edges = node.edges()
+                    .stream()
+                    .filter(e -> e.isDynamic())
+                    .sorted()
+                    .toList();
+
+                // Evaluate in this order of precedence:
+                // int, long, uuid, string
+                edge = edges
+                    .stream()
+                    .filter(e -> {
+                        if (e.pattern().matcher(suffix).lookingAt()) {
+                            // Store the param
+                            return true;
+                        }
+
+                        return false;
+                    }).findFirst();
+
+                if (edge.isEmpty()) {
+                    node = null;
+                } else {
+                    node = edge.get().targetNode();
+                    var matcher = edge.get()
+                        .pattern()
+                        .matcher(suffix);
+
+                    matcher.lookingAt();
+                    suffixHead += matcher.end();
+                }
             } else {
                 node = edge.get().targetNode();
                 suffixHead += edge.get().label().length();
@@ -152,7 +216,143 @@ class RadixTree<V> implements PrefixTree<V> {
         }
     }
 
-    private record Pair<K, V>(K key, V value) {
+    public void add(String word, V value, List<Triplet<String, Pair<Class<?>, Integer>, Pattern>> metadata) {
+        var node = root;
+        int suffixHead = 0;
+
+        var iter = metadata.iterator();
+        while (true) {
+            var suffix = word.substring(suffixHead);
+
+            if (suffix.equals("?")) {
+                var param = iter.next();
+
+                node.edges().add(
+                    new Edge<>(
+                        "?",
+                        new Node<>(new ArrayList<>(), value),
+                        param.first(),
+                        param.second().key(),
+                        param.second().value(),
+                        param.third()
+                    )
+                );
+                return;
+            }
+
+            if (suffix.startsWith("?")) {
+                var param = iter.next();
+
+                var next = new Edge<V>(
+                    "?",
+                    new Node<>(new ArrayList<>(), null),
+                    param.first(),
+                    param.second().key(),
+                    param.second().value(),
+                    param.third()
+                );
+
+                node.edges().add(next);
+                node = next.targetNode();
+                suffixHead += 1;
+                continue;
+            }
+
+            var edge = node.edges()
+            .stream()
+            .filter(e -> findCommonPrefix(suffix, e.label()).length() > 0)
+            .findFirst();
+
+            // No common prefix
+            if (edge.isEmpty()) {
+                var next = suffix.indexOf("?");
+                if (next == -1) {
+                    node.edges().add(
+                        new Edge<>(
+                            suffix,
+                            new Node<>(new ArrayList<>(), value)
+                        )
+                    );
+
+                    return;
+                } else {
+                    var prefix = suffix.substring(0, next);
+                    node.edges().add(
+                        new Edge<>(
+                            prefix,
+                            new Node<>(new ArrayList<>(), null)
+                        )
+                    );
+
+                    node = node.edges().getLast().targetNode();
+                    suffixHead += prefix.length();
+                    continue;
+                }
+            } else {
+                var edgeValue = edge.get();
+                var label = edgeValue.label();
+                var prefix = findCommonPrefix(suffix, label);
+
+                // Exact prefix match
+                if (suffix.startsWith(label)) {
+                    // Already added
+                    if (suffixHead + prefix.length() == word.length()) {
+                        return;
+                    }
+                } else if (prefix.length() > 0) {
+                    // Partial prefix match
+                    edgeValue.changeLabel(label.substring(prefix.length()));
+                    node.edges().remove(edgeValue);
+
+
+
+                    var newNode = new Node<V>(new ArrayList<>(), suffix.length() == prefix.length() ? value : null);
+                    node.edges().add(new Edge<>(
+                        prefix,
+                        newNode
+                    ));
+                    newNode.edges().add(edgeValue);
+
+                    if (suffix.length() != prefix.length()) {
+                        var rest = suffix.substring(prefix.length());
+                        var next = rest.indexOf("?");
+
+                        if (next == -1) {
+                            newNode.edges().add(
+                                new Edge<V>(
+                                    rest,
+                                    new Node<V>(new ArrayList<>(), value)
+                                )
+                            );
+
+                            return;
+                        } else if (next == 0) {
+                            node = newNode;
+                            suffixHead += prefix.length();
+                            continue;
+                        } else {
+                            suffixHead += prefix.length();
+
+                            prefix = rest.substring(0, next);
+                            newNode.edges().add(
+                                new Edge<>(
+                                    prefix,
+                                    new Node<>(new ArrayList<>(), null)
+                                )
+                            );
+
+                            node = newNode.edges().getLast().targetNode();
+                            suffixHead += prefix.length();
+                            continue;
+                        }
+                    }
+
+                    return;
+                }
+            }
+            node = edge.get().targetNode();
+            suffixHead += edge.get().label().length();
+        }
     }
 
     // Follows the graphviz dot syntax
